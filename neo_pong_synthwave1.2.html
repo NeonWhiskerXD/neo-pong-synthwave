@@ -245,21 +245,19 @@
         const audioRebote = new Audio('rebote.wav');
         const audioGol = new Audio('explosion.wav');
         const audioFondo = new Audio('musica_fondo.mp3');
-        const audioMenu = new Audio('musica_menu.mp3'); // <-- NUEVO AUDIO DE MENÚ
-        const audioHover = new Audio('hover.wav');    // <-- NUEVO AUDIO DE HOVER
+        const audioMenu = new Audio('musica_menu.mp3'); 
+        const audioHover = new Audio('hover.wav');
 
         audioFondo.loop = true;
         audioMenu.loop = true;
         audioGol.volume = 0.8;
         audioRebote.volume = 0.5;
-        audioHover.volume = 0.3; // Volumen bajo para que no moleste
+        audioHover.volume = 0.3; 
 
-        // Función para reproducir el sonido del hover
         window.reproducirHover = function() {
-            audioHover.currentTime = 0; // Reinicia el sonido si ya se está reproduciendo
-            audioHover.play().catch(e => console.log('Error al reproducir hover:', e)); // Manejar posibles errores
+            audioHover.currentTime = 0; 
+            audioHover.play().catch(e => console.log('Error al reproducir hover:', e)); 
         }
-
 
         // --- CONSTANTES Y VARIABLES DEL JUEGO (Mantenidas) ---
         const canvas = document.getElementById('gameCanvas');
@@ -315,7 +313,6 @@
             ocultarTodo();
             document.getElementById('mainMenu').style.display = 'flex';
             
-            // Pausar música del juego y reproducir música del menú
             audioFondo.pause();
             audioMenu.currentTime = 0;
             audioMenu.play().catch(e => console.log("Error al reproducir música del menú: ", e)); 
@@ -372,7 +369,6 @@
             pelotas.push(crearPelota());
             actualizarBarrasVida();
             
-            // Pausar música del menú y reproducir música de fondo del juego
             audioMenu.pause();
             audioFondo.currentTime = 0;
             audioFondo.play().catch(e => console.log("Error al iniciar música de fondo: ", e));
@@ -380,7 +376,7 @@
             requestAnimationFrame(actualizar);
         }
 
-        // --- RESTO DE LAS FUNCIONES DEL JUEGO (Mantenidas) ---
+        // --- LÓGICA DE LA IA y DIBUJO (Mantenidas) ---
         
         function moverIA(paleta, pelota) {
             if (pelota.dx > 0 && pelota.x > GAME_WIDTH / 2) {
@@ -531,17 +527,26 @@
 
                 // GOL
                 if (pelota.x < 0 || pelota.x > GAME_WIDTH) {
-                    const jugadorQueAnota = (pelota.x < 0) ? 2 : 1;
-                    audioGol.play(); explosionesYTemblor(jugadorQueAnota);
-
-                    if (jugadorQueAnota === 1) vida1--;
-                    else vida2--;
+                    // ** LÓGICA DE PUNTUACIÓN CORREGIDA **
+                    if (pelota.x < 0) {
+                        // La pelota cruzó el lado izquierdo (meta del JUGADOR 1)
+                        vida1--; 
+                        explosionesYTemblor(1); // Muestra explosión en el lado 1
+                    } else { // pelota.x > GAME_WIDTH
+                        // La pelota cruzó el lado derecho (meta del JUGADOR 2/CPU)
+                        vida2--;
+                        explosionesYTemblor(2); // Muestra explosión en el lado 2
+                    }
+                    
+                    audioGol.play();
                     actualizarBarrasVida();
 
+                    // Reaparecer pelota
                     if (pelotas.length > 1) { pelotas.splice(i, 1); } 
                     else { 
                         Object.assign(pelota, crearPelota(GAME_WIDTH / 2, GAME_HEIGHT / 2)); 
-                        pelota.dx = (jugadorQueAnota === 1) ? VELOCIDAD_INICIAL : -VELOCIDAD_INICIAL;
+                        // La dirección inicial es hacia el que acaba de perder vida
+                        pelota.dx = (vida1 < vida2) ? VELOCIDAD_INICIAL : -VELOCIDAD_INICIAL;
                     }
                     
                     if (vida1 <= 0 || vida2 <= 0) { finalizarJuego(); return; }
