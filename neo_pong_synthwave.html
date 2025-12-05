@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Neo-Pong Synthwave - FIX</title>
+    <style>
+        /* --- ESTILOS BASE SYNTHWAVE --- */
+        body {
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow: hidden; 
+            position: relative;
+        }
+        
+        /* Fondo Synthwave - (Cian, Magenta, Grid) */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 50% 100%, #ff66ff 0%, rgba(255, 102, 255, 0) 25%),
+                linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 50%),
+                repeating-linear-gradient(0deg, #333 0, #333 2px, transparent 2px, transparent 100px),
+                repeating-linear-gradient(90deg, #333 0, #333 2px, transparent 2px, transparent 100px);
+            background-size: 100% 100%, 100% 100%, 100% 50%, 50% 100%;
+            background-repeat: no-repeat, no-repeat, repeat, repeat;
+            opacity: 0.5;
+        }
+
+        /* --- ESTILOS DEL CONTENEDOR DEL JUEGO --- */
+        #gameContainer {
+            border: 4px solid #00ffff;
+            box-shadow: 0 0 15px #00ffff, 0 0 30px rgba(0, 255, 255, 0.5);
+            position: relative;
+            display: none;
+        }
+        canvas {
+            background-color: transparent;
+            display: block;
+        }
+        
+        /* --- ESTILOS DEL MENÚ Y BOTONES NEÓN --- */
+        #mainMenu, #modeSelection, #creditsScreen {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid #ff00ff;
+            box-shadow: 0 0 10px #ff00ff, 0 0 20px rgba(255, 0, 255, 0.5);
+            width: 400px;
+            height: auto;
+            z-index: 30;
+        }
+        
+        #modeSelection, #creditsScreen {
+            display: none;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #faff00;
+            text-shadow: 0 0 10px #faff00, 0 0 20px #ff00ff;
+            margin-bottom: 40px;
+        }
+
+        .menu-button {
+            padding: 10px 30px;
+            margin: 10px 0;
+            font-size: 20px;
+            cursor: pointer;
+            background-color: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            box-shadow: 0 0 10px #00ffff;
+            transition: all 0.2s;
+            width: 80%;
+            text-align: center;
+        }
+
+        .menu-button:hover {
+            background-color: #00ffff;
+            color: #000;
+            box-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff;
+        }
+        
+        /* --- ESTILOS DE CRÉDITOS --- */
+        #creditsScreen p {
+            font-size: 16px;
+            color: #fff;
+            margin: 5px 0;
+            text-shadow: 0 0 5px #ff00ff;
+        }
+        
+        #creditsScreen h2 {
+            color: #00ffff;
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        
+        .creator-name {
+            color: #faff00;
+            text-shadow: 0 0 5px #faff00;
+        }
+
+        /* --- ESTILOS DE JUEGO (Mantenidos) --- */
+        #uiContainer {
+            position: absolute;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            top: 10px;
+            padding: 0 20px;
+            box-sizing: border-box;
+            font-size: 18px;
+            z-index: 10;
+        }
+
+        .life-bar-container {
+            width: 150px;
+            height: 18px;
+            border: 2px solid;
+            box-shadow: 0 0 7px currentColor;
+            overflow: hidden;
+            border-radius: 3px;
+        }
+        .life-bar { height: 100%; transition: width 0.1s; }
+        #life1Container { border-color: #ff00ff; color: #ff00ff; }
+        #life2Container { border-color: #00ffff; color: #00ffff; }
+        #lifeBar1 { background-color: #ff00ff; }
+        #lifeBar2 { background-color: #00ffff; }
+
+        #finalScreen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20;
+        }
+        #scoreText {
+            font-size: 48px; margin-bottom: 20px;
+            text-shadow: 0 0 10px #fff, 0 0 20px #ff00ff; color: #fff;
+        }
+        #restartButton {
+            padding: 10px 20px; font-size: 24px; cursor: pointer;
+            background-color: transparent; border: 2px solid #00ffff;
+            color: #00ffff; box-shadow: 0 0 10px #00ffff; transition: all 0.2s;
+        }
+        #restartButton:hover {
+            background-color: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff;
+        }
+
+        @keyframes flicker { from { opacity: 1; } to { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="uiContainer">
+            <div>
+                <span id="player1Name" style="color: #ff00ff; text-shadow: 0 0 5px #ff00ff;">JUGADOR 1</span>
+                <div id="life1Container" class="life-bar-container">
+                    <div id="lifeBar1" class="life-bar"></div>
+                </div>
+            </div>
+            <div>
+                <span id="player2Name" style="color: #00ffff; text-shadow: 0 0 5px #00ffff;">JUGADOR 2</span>
+                <div id="life2Container" class="life-bar-container">
+                    <div id="lifeBar2" class="life-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="finalScreen">
+            <div id="scoreText"></div>
+            <button id="restartButton" onclick="mostrarMenu()">VOLVER AL MENÚ</button>
+        </div>
+    </div>
+    
+    <div id="creditsScreen">
+        <h2>CRÉDITOS NEÓN</h2>
+        <p>CONCEPTO Y DISEÑO:</p>
+        <p class="creator-name">NeonWhisker_XD</p>
+        <p>ASISTENCIA EN CÓDIGO Y ESTRUCTURA:</p>
+        <p class="creator-name">GeminisIA</p>
+        <button class="menu-button" onclick="mostrarMenu()">VOLVER</button>
+    </div>
+
+    <div id="modeSelection">
+        <h1>SELECCIONAR MODO</h1>
+        <button class="menu-button" onclick="iniciarJuego('IA')">JUGAR CONTRA IA (CPU)</button>
+        <button class="menu-button" onclick="iniciarJuego('MULTIPLAYER')">MULTIJUGADOR LOCAL (2P)</button>
+        <button class="menu-button" onclick="mostrarMenu()">VOLVER</button>
+    </div>
+
+    <div id="mainMenu">
+        <h1>NEO-PONG EXPLOSIVO</h1>
+        <button class="menu-button" onclick="mostrarSeleccionModo()">JUGAR</button>
+        <button class="menu-button" onclick="mostrarCreditos()">CRÉDITOS</button>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN DE AUDIO (Mantenida) ---
+        const audioRebote = new Audio('rebote.wav');
+        const audioGol = new Audio('explosion.wav');
+        const audioFondo = new Audio('musica_fondo.mp3');
+        audioFondo.loop = true;
+        audioGol.volume = 0.8;
+        audioRebote.volume = 0.5;
+
+        // --- CONSTANTES Y VARIABLES DEL JUEGO ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const GAME_WIDTH = canvas.width;
+        const GAME_HEIGHT = canvas.height;
+        const PALETA_ANCHO = 10;
+        const PALETA_ALTO = 80;
+        const VELOCIDAD_PALETA = 6;
+        const VELOCIDAD_IA = 5;
+        const MAX_PELOTAS = 3;
+        const MAX_VIDA = 5;
+        const COLOR_P1 = '#ff00ff';
+        const COLOR_P2 = '#00ffff';
+        const COLOR_PELOTA = '#faff00';
+        const VELOCIDAD_INICIAL = 4;
+
+        let juegoEnCurso = false;
+        let modoJuego = null;
+        let vida1 = MAX_VIDA;
+        let vida2 = MAX_VIDA;
+        let paleta1 = { x: 20, y: GAME_HEIGHT / 2 - PALETA_ALTO / 2, dy: 0, color: COLOR_P1 };
+        let paleta2 = { x: GAME_WIDTH - 20 - PALETA_ANCHO, y: GAME_HEIGHT / 2 - PALETA_ALTO / 2, dy: 0, color: COLOR_P2 };
+        let pelotas = [];
+        const keys = {};
+
+        document.addEventListener('keydown', e => keys[e.key] = true);
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        // --- MANEJO DE VISTAS (MENÚ) ---
+        function ocultarTodo() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('modeSelection').style.display = 'none';
+            document.getElementById('creditsScreen').style.display = 'none';
+            document.getElementById('gameContainer').style.display = 'none';
+            document.getElementById('finalScreen').style.display = 'none';
+        }
+
+        window.mostrarMenu = function() {
+            ocultarTodo();
+            document.getElementById('mainMenu').style.display = 'flex';
+            audioFondo.pause();
+        }
+
+        window.mostrarSeleccionModo = function() {
+            ocultarTodo();
+            document.getElementById('modeSelection').style.display = 'flex';
+        }
+        
+        window.mostrarCreditos = function() {
+            ocultarTodo();
+            document.getElementById('creditsScreen').style.display = 'flex';
+        }
+        
+        window.iniciarJuego = function(modo) {
+            ocultarTodo();
+            document.getElementById('gameContainer').style.display = 'block';
+            
+            modoJuego = modo;
+            document.getElementById('player1Name').textContent = 'JUGADOR 1';
+            document.getElementById('player2Name').textContent = (modo === 'IA') ? 'CPU' : 'JUGADOR 2';
+
+            vida1 = MAX_VIDA;
+            vida2 = MAX_VIDA;
+            juegoEnCurso = true;
+            paleta1.y = GAME_HEIGHT / 2 - PALETA_ALTO / 2;
+            paleta2.y = GAME_HEIGHT / 2 - PALETA_ALTO / 2;
+            pelotas = [];
+            pelotas.push(crearPelota());
+            actualizarBarrasVida();
+            
+            audioFondo.currentTime = 0;
+            audioFondo.play();
+
+            requestAnimationFrame(actualizar);
+        }
+
+        // --- LÓGICA DE LA IA ---
+        function moverIA(paleta, pelota) {
+            // IA que sigue a la pelota si está en su campo
+            if (pelota.dx > 0 && pelota.x > GAME_WIDTH / 2) {
+                const centroPaleta = paleta.y + PALETA_ALTO / 2;
+                
+                if (pelota.y < centroPaleta - 10) { 
+                    paleta.dy = -VELOCIDAD_IA;
+                } else if (pelota.y > centroPaleta + 10) { 
+                    paleta.dy = VELOCIDAD_IA;
+                } else {
+                    paleta.dy = 0;
+                }
+            } else {
+                // Si la pelota está lejos, la IA se centra lentamente
+                const centroDeseado = GAME_HEIGHT / 2;
+                if (paleta.y + PALETA_ALTO / 2 < centroDeseado) {
+                     paleta.dy = VELOCIDAD_IA / 2;
+                } else if (paleta.y + PALETA_ALTO / 2 > centroDeseado) {
+                     paleta.dy = -VELOCIDAD_IA / 2;
+                } else {
+                    paleta.dy = 0;
+                }
+            }
+        }
+        
+        // --- FUNCIONES DE DIBUJO/UTILIDAD (Mantenidas) ---
+        function crearPelota(x, y) {
+            const pelota = {
+                x: x || GAME_WIDTH / 2, y: y || GAME_HEIGHT / 2, radio: 8,
+                dx: (Math.random() < 0.5 ? 1 : -1) * VELOCIDAD_INICIAL,
+                dy: (Math.random() - 0.5) * 6, color: COLOR_PELOTA
+            };
+            if (Math.abs(pelota.dy) < 3) pelota.dy = (pelota.dy > 0 ? 3 : -3); 
+            return pelota;
+        }
+
+        function spawnNuevaPelota() {
+            if (pelotas.length < MAX_PELOTAS) {
+                if (Math.random() < 0.33) { 
+                    pelotas.push(crearPelota());
+                }
+            }
+        }
+        
+        function dibujarRect(x, y, w, h, color) {
+            ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 10;
+            ctx.fillRect(x, y, w, h); ctx.shadowBlur = 0;
+        }
+
+        function dibujarCirculo(x, y, r, color) {
+            ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function dibujarCampo() {
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            ctx.strokeStyle = '#333'; ctx.shadowColor = COLOR_P2; ctx.shadowBlur = 10;
+            ctx.setLineDash([15, 10]); ctx.beginPath();
+            ctx.moveTo(GAME_WIDTH / 2, 0); ctx.lineTo(GAME_WIDTH / 2, GAME_HEIGHT);
+            ctx.stroke(); ctx.shadowBlur = 0; ctx.setLineDash([]);
+        }
+
+        function actualizarBarrasVida() {
+            document.getElementById('lifeBar1').style.width = `${(vida1 / MAX_VIDA) * 100}%`;
+            document.getElementById('lifeBar2').style.width = `${(vida2 / MAX_VIDA) * 100}%`;
+            const bar1 = document.getElementById('lifeBar1');
+            const bar2 = document.getElementById('lifeBar2');
+            bar1.style.animation = (vida1 <= 2) ? 'flicker 0.4s infinite alternate' : 'none';
+            bar2.style.animation = (vida2 <= 2) ? 'flicker 0.4s infinite alternate' : 'none';
+        }
+
+        function explosionesYTemblor(jugador) {
+            const colorExplosion = (jugador === 1) ? COLOR_P2 : COLOR_P1;
+            const gameContainer = document.getElementById('gameContainer');
+
+            gameContainer.style.transform = `translate(${Math.random() * 8 - 4}px, ${Math.random() * 8 - 4}px)`;
+            setTimeout(() => { gameContainer.style.transform = `translate(0, 0)`; }, 100);
+
+            ctx.fillStyle = colorExplosion + '80';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        }
+
+        function finalizarJuego() {
+            juegoEnCurso = false;
+            audioFondo.pause();
+            const ganador = (vida1 <= 0) ? document.getElementById('player2Name').textContent + ' GANA!' : document.getElementById('player1Name').textContent + ' GANA!';
+            
+            document.getElementById('scoreText').textContent = ganador;
+            document.getElementById('finalScreen').style.display = 'flex';
+        }
+        
+        // --- BUCLE PRINCIPAL DEL JUEGO (CORREGIDO) ---
+
+        function actualizar() {
+            if (!juegoEnCurso) return;
+
+            // 1. MOVIMIENTO DE PALETAS Y IA
+            // JUGADOR 1 (W/S) - Establece la dirección (dy)
+            if (keys['w']) paleta1.dy = -VELOCIDAD_PALETA;
+            else if (keys['s']) paleta1.dy = VELOCIDAD_PALETA;
+            else paleta1.dy = 0;
+            
+            // JUGADOR 2: Humano o IA
+            if (modoJuego === 'IA') {
+                const pelotaCercana = pelotas.reduce((cercana, p) => p.x > cercana.x ? p : cercana, {x: 0});
+                moverIA(paleta2, pelotaCercana); // Mueve la IA (establece dy)
+            } else { // MULTIJUGADOR (Flechas)
+                if (keys['ArrowUp']) paleta2.dy = -VELOCIDAD_PALETA;
+                else if (keys['ArrowDown']) paleta2.dy = VELOCIDAD_PALETA;
+                else paleta2.dy = 0;
+            }
+
+            // APLICAR MOVIMIENTO Y LÍMITES (¡CORRECCIÓN CLAVE AQUÍ!)
+            paleta1.y += paleta1.dy; // Aplica el movimiento a la posición
+            paleta2.y += paleta2.dy; // Aplica el movimiento a la posición
+
+            // Aplicar límites del campo de juego
+            paleta1.y = Math.min(Math.max(paleta1.y, 0), GAME_HEIGHT - PALETA_ALTO);
+            paleta2.y = Math.min(Math.max(paleta2.y, 0), GAME_HEIGHT - PALETA_ALTO);
+            
+            // 2. LÓGICA DE PELOTAS (Mantenida)
+            for (let i = pelotas.length - 1; i >= 0; i--) {
+                const pelota = pelotas[i];
+                pelota.x += pelota.dx;
+                pelota.y += pelota.dy;
+
+                // Colisión con paredes Superior/Inferior
+                if (pelota.y - pelota.radio < 0 || pelota.y + pelota.radio > GAME_HEIGHT) {
+                    pelota.dy *= -1;
+                    audioRebote.currentTime = 0; audioRebote.play();
+                    ctx.fillStyle = COLOR_PELOTA; ctx.shadowColor = COLOR_PELOTA; ctx.shadowBlur = 8;
+                    ctx.fillRect(0, (pelota.y - pelota.radio < 0) ? 0 : GAME_HEIGHT - 3, GAME_WIDTH, 3);
+                    ctx.shadowBlur = 0;
+                }
+
+                // Colisión con Paletas (se reproduce sonido)
+                const hit1 = pelota.x - pelota.radio < paleta1.x + PALETA_ANCHO && pelota.y > paleta1.y && pelota.y < paleta1.y + PALETA_ALTO && pelota.dx < 0;
+                const hit2 = pelota.x + pelota.radio > paleta2.x && pelota.y > paleta2.y && pelota.y < paleta2.y + PALETA_ALTO && pelota.dx > 0;
+                
+                if (hit1 || hit2) {
+                    audioRebote.currentTime = 0; audioRebote.play();
+                    pelota.dx *= -1.08; 
+                    const paleta = hit1 ? paleta1 : paleta2;
+                    pelota.dy += paleta.dy * 0.5;
+                    pelota.color = paleta.color; 
+                    spawnNuevaPelota();
+                }
+
+                // GOL
+                if (pelota.x < 0 || pelota.x > GAME_WIDTH) {
+                    const jugadorQueAnota = (pelota.x < 0) ? 2 : 1;
+                    audioGol.play(); explosionesYTemblor(jugadorQueAnota);
+
+                    if (jugadorQueAnota === 1) vida1--;
+                    else vida2--;
+                    actualizarBarrasVida();
+
+                    if (pelotas.length > 1) { pelotas.splice(i, 1); } 
+                    else { 
+                        Object.assign(pelota, crearPelota(GAME_WIDTH / 2, GAME_HEIGHT / 2)); 
+                        pelota.dx = (jugadorQueAnota === 1) ? VELOCIDAD_INICIAL : -VELOCIDAD_INICIAL;
+                    }
+                    
+                    if (vida1 <= 0 || vida2 <= 0) { finalizarJuego(); return; }
+                }
+            }
+            
+            // 3. DIBUJO
+            dibujarCampo();
+            dibujarRect(paleta1.x, paleta1.y, PALETA_ANCHO, PALETA_ALTO, paleta1.color);
+            dibujarRect(paleta2.x, paleta2.y, PALETA_ANCHO, PALETA_ALTO, paleta2.color);
+            pelotas.forEach(p => dibujarCirculo(p.x, p.y, p.radio, p.color));
+
+            requestAnimationFrame(actualizar);
+        }
+
+        window.onload = mostrarMenu;
+    </script>
+</body>
+</html>
